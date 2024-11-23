@@ -154,6 +154,57 @@ static bool _validateMatMulResults(float *golden, float *mat, size_t dim)
     return true;
 }
 
+struct CudaDeviceProperties
+{
+    int smVerMajor;
+    int smVerMinor;
+    int warpSize;
+    int maxThreadsPerBlock;
+    int maxBlockDimX;
+    int maxBlockDimY;
+    int maxGridDimX;
+    int maxGridDimY;
+    int maxSmemPerBlock;
+    int totalConstMem;
+    int maxRegistersPerBlock;
+    int l2CacheSize;
+    int smCount;
+};
+CudaDeviceProperties g_cudaDeviceProperties;
+
+void cudaDeviceGetProperties(int deviceIdx)
+{
+    CUDA_CHECK_ERROR(cudaDeviceGetAttribute(&g_cudaDeviceProperties.smVerMajor, cudaDevAttrComputeCapabilityMajor, deviceIdx));
+    CUDA_CHECK_ERROR(cudaDeviceGetAttribute(&g_cudaDeviceProperties.smVerMinor, cudaDevAttrComputeCapabilityMinor, deviceIdx));
+    CUDA_CHECK_ERROR(cudaDeviceGetAttribute(&g_cudaDeviceProperties.warpSize, cudaDevAttrWarpSize, deviceIdx));
+    CUDA_CHECK_ERROR(cudaDeviceGetAttribute(&g_cudaDeviceProperties.maxThreadsPerBlock, cudaDevAttrMaxThreadsPerBlock, deviceIdx));
+    CUDA_CHECK_ERROR(cudaDeviceGetAttribute(&g_cudaDeviceProperties.maxBlockDimX, cudaDevAttrMaxBlockDimX, deviceIdx));
+    CUDA_CHECK_ERROR(cudaDeviceGetAttribute(&g_cudaDeviceProperties.maxBlockDimY, cudaDevAttrMaxBlockDimY, deviceIdx));
+    CUDA_CHECK_ERROR(cudaDeviceGetAttribute(&g_cudaDeviceProperties.maxGridDimX, cudaDevAttrMaxGridDimX, deviceIdx));
+    CUDA_CHECK_ERROR(cudaDeviceGetAttribute(&g_cudaDeviceProperties.maxGridDimY, cudaDevAttrMaxGridDimY, deviceIdx));
+    CUDA_CHECK_ERROR(cudaDeviceGetAttribute(&g_cudaDeviceProperties.maxSmemPerBlock, cudaDevAttrMaxSharedMemoryPerBlock, deviceIdx));
+    CUDA_CHECK_ERROR(cudaDeviceGetAttribute(&g_cudaDeviceProperties.totalConstMem, cudaDevAttrTotalConstantMemory, deviceIdx));
+    CUDA_CHECK_ERROR(cudaDeviceGetAttribute(&g_cudaDeviceProperties.maxRegistersPerBlock, cudaDevAttrMaxRegistersPerBlock, deviceIdx));
+    CUDA_CHECK_ERROR(cudaDeviceGetAttribute(&g_cudaDeviceProperties.l2CacheSize, cudaDevAttrL2CacheSize, deviceIdx));
+    CUDA_CHECK_ERROR(cudaDeviceGetAttribute(&g_cudaDeviceProperties.smCount, cudaDevAttrMultiProcessorCount, deviceIdx));
+
+    printf("======= DEVICE %d ATTRIBUTES ======\n", deviceIdx);
+    printf("smVerMajor:             %d\n", g_cudaDeviceProperties.smVerMajor);
+    printf("smVerMinor:             %d\n", g_cudaDeviceProperties.smVerMinor);
+    printf("warpSize:               %d\n", g_cudaDeviceProperties.warpSize);
+    printf("maxThreadsPerBlock:     %d\n", g_cudaDeviceProperties.maxThreadsPerBlock);
+    printf("maxBlockDimX:           %d\n", g_cudaDeviceProperties.maxBlockDimX);
+    printf("maxBlockDimY:           %d\n", g_cudaDeviceProperties.maxBlockDimY);
+    printf("maxGridDimX:            %d\n", g_cudaDeviceProperties.maxGridDimX);
+    printf("maxGridDimY:            %d\n", g_cudaDeviceProperties.maxGridDimY);
+    printf("maxSmemPerBlock:        %d\n", g_cudaDeviceProperties.maxSmemPerBlock);
+    printf("totalConstMem:          %d\n", g_cudaDeviceProperties.totalConstMem);
+    printf("maxRegistersPerBlock:   %d\n", g_cudaDeviceProperties.maxRegistersPerBlock);
+    printf("l2CacheSize:            %d\n", g_cudaDeviceProperties.l2CacheSize);
+    printf("smCount:                %d\n", g_cudaDeviceProperties.smCount);
+    printf("======= DEVICE %d ATTRIBUTES ======\n\n", deviceIdx);
+}
+
 enum MatMulImplType
 {
     MAT_MUL_IMPL_CUBLAS,
@@ -266,6 +317,7 @@ int main(int argc, char **argv)
     float *d_pMatrixRes = NULL;
     float *d_pMatrixResGolden = NULL;
 
+    cudaDeviceGetProperties(0);
 
     CUDA_CHECK_ERROR(cudaMallocHost(&h_pMatrixRes, sizeof(float) * matSize));
     CUDA_CHECK_ERROR(cudaMallocHost(&h_pMatrixResGolden, sizeof(float) * matSize));
