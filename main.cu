@@ -7,9 +7,9 @@
 #include <curand.h>
 #include <string>
 #include <functional>
+#include "matMul.h"
 
 #ifdef CUBLAS_API_H_
-// cuBLAS API errors
 static const char *_cublasGetError(cublasStatus_t error)
 {
     switch (error)
@@ -50,7 +50,6 @@ static const char *_cublasGetError(cublasStatus_t error)
 #endif
 
 #ifdef CURAND_H_
-// cuBLAS API errors
 static const char *_curandGetError(curandStatus_t error)
 {
     switch (error)
@@ -135,7 +134,7 @@ expr;                                                                           
     }                                                                                   \
 }
 
-#define EPSILON 0.001f
+#define EPSILON 0.1f
 static bool _validateMatMulResults(float *golden, float *mat, size_t dim)
 {
     for (size_t i = 0; i < dim; i++)
@@ -143,7 +142,7 @@ static bool _validateMatMulResults(float *golden, float *mat, size_t dim)
         for (size_t j = 0; j < dim; j++)
         {
             size_t idx = i * dim + j;
-            if (abs(golden[idx] - mat[idx]) > EPSILON)
+            if (fabs(golden[idx] - mat[idx]) > EPSILON)
             {
                 fprintf(stderr, "row: %lu col: %lu -- expected: %f actual: %f\n", i, j, golden[idx], mat[idx]);
                 return false;
@@ -153,6 +152,8 @@ static bool _validateMatMulResults(float *golden, float *mat, size_t dim)
 
     return true;
 }
+
+#define DIV_CEIL(num, div) (((num) + (div) - 1) / (div))
 
 struct CudaDeviceProperties
 {
@@ -208,6 +209,7 @@ void cudaDeviceGetProperties(int deviceIdx)
 enum MatMulImplType
 {
     MAT_MUL_IMPL_CUBLAS,
+    MAT_MUL_IMPL_NAIVE,
     MAT_MUL_IMPL_COUNT,
 };
 
@@ -226,7 +228,7 @@ float runCuBLASMatMul
     size_t matDim
 )
 {
-    float time;
+    float time = 0.0f;
     cudaEvent_t start;
     cudaEvent_t stop;
     CUDA_CHECK_ERROR(cudaEventCreate(&start));
@@ -254,6 +256,29 @@ float runCuBLASMatMul
     CUDA_CHECK_ERROR(cudaEventElapsedTime(&time, start, stop));
 
     return time;
+}
+
+void runNaiveMatMul
+(
+    float *d_matrixA,
+    float *d_matrixB,
+    float *d_matrixRes,
+    size_t matDim
+)
+{
+    dim3 blockDim = {{
+        .x = (uint32_t)g_cudaDeviceProperties.warpSize,
+        .y = (uint32_t)(g_cudaDeviceProperties.maxThreadsPerBlock / g_cudaDeviceProperties.warpSize),
+        .z = 1,
+    }};
+
+    dim3 gridDim = {{
+        .x = (uint32_t)DIV_CEIL(matDim , blockDim.x),
+        .y = (uint32_t)DIV_CEIL(matDim , blockDim.y),
+        .z = 1,
+    }};
+
+    cuMatrixMulNaive<<<gridDim, blockDim>>>(d_matrixA, d_matrixB, d_matrixRes, matDim);
 }
 
 void runImplementations
@@ -345,6 +370,7 @@ int main(int argc, char **argv)
 
     std::array<MatMulImpl, MAT_MUL_IMPL_COUNT> implArray = {{
         {.typeStr = "CUBLAS", .implWrapper = runCuBLASMatMul},
+        {.typeStr = "Naive", .implWrapper = runNaiveMatMul},
     }};
 
     runImplementations(

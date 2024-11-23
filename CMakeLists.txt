@@ -7,6 +7,7 @@ set(CMAKE_CUDA_STANDARD_REQUIRED True)
 find_package(CUDAToolkit REQUIRED)
 
 add_executable(CuMatMul
-    main.cu)
+    main.cu
+    matMul.cu)
 
 target_link_libraries(CuMatMul PRIVATE CUDA::cublas CUDA::curand)
